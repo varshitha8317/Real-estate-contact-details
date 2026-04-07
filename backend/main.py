@@ -136,6 +136,7 @@ def update_property(id: int, property: Property):
 
     return {"message": "Property updated successfully"}
 
+
 @app.delete("/properties/{id}")
 def delete_property(id: int):
     cursor = db.cursor()
