@@ -1,3 +1,16 @@
+"""
+Real Estate Property Management API
+
+This module provides a FastAPI backend for managing real estate properties.
+It includes CRUD operations for properties stored in a MySQL database.
+
+Features:
+- Add new properties
+- Retrieve all properties or filter by city/area
+- Update existing properties
+- Delete properties
+"""
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -5,11 +18,13 @@ import mysql.connector
 import os
 from dotenv import load_dotenv
 
+# Load environment variables from .env file
 load_dotenv()
 
+# Initialize FastAPI application
 app = FastAPI()
 
-
+# Database connection setup using environment variables
 db = mysql.connector.connect(
     host=os.getenv("DB_HOST"),
     user=os.getenv("DB_USER"),
@@ -17,7 +32,7 @@ db = mysql.connector.connect(
     database=os.getenv("DB_NAME")
 )
 
-# Model
+# Pydantic model for property data validation
 class Property(BaseModel):
     name: str
     city: str
@@ -32,6 +47,15 @@ class Property(BaseModel):
 
 @app.post("/properties")
 def add_property(property: Property):
+    """
+    Add a new property to the database.
+
+    Args:
+        property (Property): Property data to be added
+
+    Returns:
+        dict: Success message
+    """
     cursor = db.cursor()
 
     query = """
@@ -60,6 +84,12 @@ def add_property(property: Property):
 
 @app.get("/properties")
 def get_all_properties():
+    """
+    Retrieve all properties from the database.
+
+    Returns:
+        list: List of all properties as dictionaries
+    """
     cursor = db.cursor(dictionary=True)
 
     cursor.execute("SELECT * FROM properties")
@@ -69,6 +99,18 @@ def get_all_properties():
 
 @app.get("/properties/city/{city}")
 def get_by_city(city: str):
+    """
+    Retrieve all properties in a specific city.
+
+    Args:
+        city (str): Name of the city to filter by
+
+    Returns:
+        list: List of properties in the specified city
+
+    Raises:
+        HTTPException: If no properties are found in the city
+    """
     cursor = db.cursor(dictionary=True)
 
     cursor.execute("SELECT * FROM properties WHERE city=%s", (city,))
@@ -83,6 +125,19 @@ def get_by_city(city: str):
 
 @app.get("/properties/{city}/{area}")
 def get_by_city_area(city: str, area: str):
+    """
+    Retrieve all properties in a specific city and area.
+
+    Args:
+        city (str): Name of the city
+        area (str): Name of the area within the city
+
+    Returns:
+        list: List of properties in the specified city and area
+
+    Raises:
+        HTTPException: If no properties are found
+    """
     cursor = db.cursor(dictionary=True)
 
     cursor.execute(
@@ -101,6 +156,19 @@ def get_by_city_area(city: str, area: str):
 
 @app.put("/properties/{id}")
 def update_property(id: int, property: Property):
+    """
+    Update an existing property by ID.
+
+    Args:
+        id (int): Property ID to update
+        property (Property): Updated property data
+
+    Returns:
+        dict: Success message
+
+    Raises:
+        HTTPException: If property with given ID is not found
+    """
     cursor = db.cursor()
 
     query = """
@@ -139,6 +207,18 @@ def update_property(id: int, property: Property):
 
 @app.delete("/properties/{id}")
 def delete_property(id: int):
+    """
+    Delete a property by ID.
+
+    Args:
+        id (int): Property ID to delete
+
+    Returns:
+        dict: Success message
+
+    Raises:
+        HTTPException: If property with given ID is not found
+    """
     cursor = db.cursor()
 
     cursor.execute("DELETE FROM properties WHERE id=%s", (id,))
