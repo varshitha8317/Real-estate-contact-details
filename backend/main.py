@@ -2,29 +2,34 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 import mysql.connector
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
-# MySQL connection
+
 db = mysql.connector.connect(
-    host="172.25.84.112",
-    user="teamuser",
-    password="team123",
-    database="realestate_db"
+    host=os.getenv("DB_HOST"),
+    user=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASSWORD"),
+    database=os.getenv("DB_NAME")
 )
 
+# Model
 class Property(BaseModel):
     name: str
     city: str
     area: str
-    property_type: str
+    property_type: str   # plot / house
     price: int
     bedrooms: Optional[int] = None
     area_sqft: int
     status: str = "available"
 
 
-# POST endpoint → Add property
+
 @app.post("/properties")
 def add_property(property: Property):
     cursor = db.cursor()
@@ -49,30 +54,70 @@ def add_property(property: Property):
     cursor.execute(query, values)
     db.commit()
 
-    return {
-        "message": "Property added successfully",
-        "property_id": cursor.lastrowid
-    }
+    return {"message": "Property added successfully"}
 
 
-# PUT endpoint → Update property by name
-@app.put("/properties/{name}")
-def update_property(name: str, property: Property):
+
+@app.get("/properties")
+def get_all_properties():
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM properties")
+    return cursor.fetchall()
+
+
+
+@app.get("/properties/city/{city}")
+def get_by_city(city: str):
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM properties WHERE city=%s", (city,))
+    result = cursor.fetchall()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="No properties in this city")
+
+    return result
+
+
+
+@app.get("/properties/{city}/{area}")
+def get_by_city_area(city: str, area: str):
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute(
+        "SELECT * FROM properties WHERE city=%s AND area=%s",
+        (city, area)
+    )
+
+    result = cursor.fetchall()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="No properties found")
+
+    return result
+
+
+
+@app.put("/properties/{id}")
+def update_property(id: int, property: Property):
     cursor = db.cursor()
 
     query = """
         UPDATE properties
-        SET city=%s,
+        SET name=%s,
+            city=%s,
             area=%s,
             property_type=%s,
             price=%s,
             bedrooms=%s,
             area_sqft=%s,
             status=%s
-        WHERE name=%s
+        WHERE id=%s
     """
 
     values = (
+        property.name,
         property.city,
         property.area,
         property.property_type,
@@ -80,16 +125,25 @@ def update_property(name: str, property: Property):
         property.bedrooms,
         property.area_sqft,
         property.status,
-        name
+        id
     )
 
     cursor.execute(query, values)
     db.commit()
 
     if cursor.rowcount == 0:
-        raise HTTPException(
-            status_code=404,
-            detail="Property not found"
-        )
+        raise HTTPException(status_code=404, detail="Property not found")
 
     return {"message": "Property updated successfully"}
+
+@app.delete("/properties/{id}")
+def delete_property(id: int):
+    cursor = db.cursor()
+
+    cursor.execute("DELETE FROM properties WHERE id=%s", (id,))
+    db.commit()
+
+    if cursor.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    return {"message": "Property deleted successfully"}
